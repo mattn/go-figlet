@@ -217,6 +217,12 @@ func (f *Font) fprintInternal(w io.Writer, text string, colors []Color) {
 				line = glyph.Lines[row]
 			}
 			line = strings.ReplaceAll(line, string(f.HardBlank), " ")
+			// Pad line to glyph width for proper alignment
+			lineRunes := []rune(line)
+			for len(lineRunes) < glyph.Width {
+				lineRunes = append(lineRunes, ' ')
+			}
+			line = string(lineRunes)
 			if len(colors) > 0 {
 				c := colors[i%len(colors)]
 				fmt.Fprint(w, c.prefix(), line, c.suffix())
