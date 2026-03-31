@@ -5,7 +5,6 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"strings"
 
 	"github.com/mattn/go-figlet"
 )
@@ -100,7 +99,9 @@ func writeGlyph(w *bufio.Writer, g *figlet.Glyph, newHeight int, hardBlank rune,
 		return orig[y][x]
 	}
 
-	outW := origW * pw
+	// Reserve one extra column so the shadowed outline has breathing room
+	// before the next glyph starts.
+	outW := origW*pw + 1
 	grid := make([][]rune, newHeight)
 	for i := range grid {
 		grid[i] = make([]rune, outW)
@@ -180,7 +181,7 @@ func writeGlyph(w *bufio.Writer, g *figlet.Glyph, newHeight int, hardBlank rune,
 		if y > 0 {
 			fmt.Fprint(w, "\n")
 		}
-		fmt.Fprint(w, strings.TrimRight(string(grid[y]), " "))
+		fmt.Fprint(w, string(grid[y]))
 		fmt.Fprint(w, "$@")
 	}
 	fmt.Fprint(w, "@\n")
