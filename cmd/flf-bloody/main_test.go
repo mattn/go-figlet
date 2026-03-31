@@ -13,10 +13,11 @@ func TestWriteBloodyGlyphSinglePixel(t *testing.T) {
 	var buf bytes.Buffer
 	w := bufio.NewWriter(&buf)
 
+	cfg := bloodyConfig{dripRatio: 1, dripDensity: 1}
 	writeBloodyGlyph(w, &figlet.Glyph{
 		Lines: []string{"#"},
 		Width: 1,
-	}, 3, '$', 1)
+	}, 3, '$', 1, cfg)
 
 	if err := w.Flush(); err != nil {
 		t.Fatalf("flush failed: %v", err)
@@ -38,11 +39,23 @@ func TestWriteBloodyGlyphSinglePixel(t *testing.T) {
 	}
 }
 
+func TestDripLengthScalesWithHeight(t *testing.T) {
+	cfg := bloodyConfig{dripRatio: 0.12, dripDensity: 1}
+
+	if got, want := maxDripLength(10, cfg), 1; got != want {
+		t.Fatalf("maxDripLength(10) = %d, want %d", got, want)
+	}
+	if got, want := maxDripLength(24, cfg), 3; got != want {
+		t.Fatalf("maxDripLength(24) = %d, want %d", got, want)
+	}
+}
+
 func TestDripLengthIsDeterministic(t *testing.T) {
-	if got, want := dripLength(0, 0, 1, 1), 1; got != want {
+	cfg := bloodyConfig{dripRatio: 0.2, dripDensity: 1}
+	if got, want := dripLength(0, 0, 1, 1, cfg), 1; got != want {
 		t.Fatalf("dripLength(0,0,1,1) = %d, want %d", got, want)
 	}
-	if got, want := dripLength(3, 4, 10, 12), dripLength(3, 4, 10, 12); got != want {
+	if got, want := dripLength(3, 4, 10, 12, cfg), dripLength(3, 4, 10, 12, cfg); got != want {
 		t.Fatalf("dripLength should be deterministic")
 	}
 }

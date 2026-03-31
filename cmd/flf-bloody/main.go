@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"flag"
 	"fmt"
+	"math"
 	"os"
 
 	"github.com/mattn/go-figlet"
@@ -21,8 +22,10 @@ var requiredChars = []rune{
 
 func main() {
 	double := flag.Bool("double", false, "double width (2 chars per pixel)")
+	dripRatio := flag.Float64("drip-ratio", 0.12, "maximum drip length as a fraction of glyph height")
+	dripDensity := flag.Float64("drip-density", 0.5, "fraction of exposed lower edges that get drips")
 	flag.Usage = func() {
-		fmt.Fprintf(os.Stderr, "Usage: flf-bloody [-double] input.flf > output.flf\n")
+		fmt.Fprintf(os.Stderr, "Usage: flf-bloody [-double] [-drip-ratio=0.12] [-drip-density=0.5] input.flf > output.flf\n")
 		flag.PrintDefaults()
 	}
 	flag.Parse()
@@ -43,7 +46,13 @@ func main() {
 		pw = 2
 	}
 
-	newHeight := font.Height + 2
+	cfg := bloodyConfig{
+		dripRatio:   clampFloat(*dripRatio, 0, 1),
+		dripDensity: clampFloat(*dripDensity, 0, 1),
+	}
+
+	maxDrip := maxDripLength(font.Height, cfg)
+	newHeight := font.Height + maxDrip
 
 	requiredSet := map[rune]bool{}
 	for _, r := range requiredChars {
@@ -68,7 +77,7 @@ func main() {
 	for _, r := range requiredChars {
 		g, ok := font.Glyphs[r]
 		if ok {
-			writeBloodyGlyph(out, g, newHeight, font.HardBlank, pw)
+			writeBloodyGlyph(out, g, newHeight, font.HardBlank, pw, cfg)
 		} else {
 			writeBlank(out, 2, newHeight)
 		}
@@ -76,11 +85,16 @@ func main() {
 
 	for _, r := range extras {
 		fmt.Fprintf(out, "%d\n", r)
-		writeBloodyGlyph(out, font.Glyphs[r], newHeight, font.HardBlank, pw)
+		writeBloodyGlyph(out, font.Glyphs[r], newHeight, font.HardBlank, pw, cfg)
 	}
 }
 
-func writeBloodyGlyph(w *bufio.Writer, g *figlet.Glyph, newHeight int, hardBlank rune, pw int) {
+type bloodyConfig struct {
+	dripRatio   float64
+	dripDensity float64
+}
+
+func writeBloodyGlyph(w *bufio.Writer, g *figlet.Glyph, newHeight int, hardBlank rune, pw int, cfg bloodyConfig) {
 	origH := len(g.Lines)
 	origW := g.Width
 	outW := origW*pw + 1
@@ -138,7 +152,7 @@ func writeBloodyGlyph(w *bufio.Writer, g *figlet.Glyph, newHeight int, hardBlank
 			}
 
 			if exposedBottom {
-				dripLen := dripLength(x, y, origW, origH)
+				dripLen := dripLength(x, y, origW, origH, cfg)
 				for d := 1; d <= dripLen && y+d < newHeight; d++ {
 					dripChar := rune('▓')
 					if d == dripLen {
@@ -165,16 +179,48 @@ func writeBloodyGlyph(w *bufio.Writer, g *figlet.Glyph, newHeight int, hardBlank
 	fmt.Fprint(w, "@\n")
 }
 
-func dripLength(x, y, width, height int) int {
-	seed := (x*17 + y*31 + width*7 + height*13) % 8
-	switch seed {
-	case 0, 1:
-		return 2
-	case 2, 3, 4:
-		return 1
-	default:
+func dripLength(x, y, width, height int, cfg bloodyConfig) int {
+	maxLen := maxDripLength(height, cfg)
+	if maxLen == 0 {
 		return 0
 	}
+
+	seed := (x*17 + y*31 + width*7 + height*13) % 100
+	if float64(seed)/100 >= cfg.dripDensity {
+		return 0
+	}
+
+	weightSeed := (x*11 + y*23 + width*5 + height*19) % 100
+	weight := 0.35 + (float64(weightSeed) / 100 * 0.65)
+	length := int(math.Round(float64(maxLen) * weight))
+	if length < 1 {
+		length = 1
+	}
+	if length > maxLen {
+		length = maxLen
+	}
+	return length
+}
+
+func maxDripLength(height int, cfg bloodyConfig) int {
+	if cfg.dripRatio <= 0 || height <= 0 {
+		return 0
+	}
+	length := int(math.Round(float64(height) * cfg.dripRatio))
+	if length < 1 {
+		length = 1
+	}
+	return length
+}
+
+func clampFloat(v, lo, hi float64) float64 {
+	if v < lo {
+		return lo
+	}
+	if v > hi {
+		return hi
+	}
+	return v
 }
 
 func writeBlank(w *bufio.Writer, width, height int) {
