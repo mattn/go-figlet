@@ -11,9 +11,9 @@ import (
 )
 
 func main() {
-	double := flag.Bool("double", true, "double width (2 chars per pixel)")
+	double := flag.Bool("double", false, "double width (2 chars per pixel)")
 	flag.Usage = func() {
-		fmt.Fprintf(os.Stderr, "Usage: flf-shadow [-double=false] input.flf > output.flf\n")
+		fmt.Fprintf(os.Stderr, "Usage: flf-shadow [-double] input.flf > output.flf\n")
 		flag.PrintDefaults()
 	}
 	flag.Parse()
@@ -29,9 +29,9 @@ func main() {
 		os.Exit(1)
 	}
 
-	pixelWidth := 2
-	if !*double {
-		pixelWidth = 1
+	pixelWidth := 1
+	if *double {
+		pixelWidth = 2
 	}
 
 	newHeight := font.Height + 1

@@ -5,13 +5,13 @@ Generates an ANSI shadow-style FIGlet font from an existing FLF file. In double-
 ## Usage
 
 ```bash
-flf-shadow [-double=false] input.flf > output.flf
+flf-shadow [-double] input.flf > output.flf
 ```
 
 ## Flags
 
 - `-double`
-  Render each source pixel at double width. Default is `true`; pass `-double=false` for the single-width variant.
+  Render each source pixel at double width. Default is single-width; pass `-double` to generate the wider variant.
 
 ## Example
 
