@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"flag"
 	"fmt"
 	"os"
 	"strings"
@@ -10,15 +11,27 @@ import (
 )
 
 func main() {
-	if len(os.Args) < 2 {
-		fmt.Fprintln(os.Stderr, "Usage: flf-3d input.flf > output.flf")
+	double := flag.Bool("double", false, "double width (2 chars per pixel)")
+	flag.Usage = func() {
+		fmt.Fprintf(os.Stderr, "Usage: flf-3d [-double] input.flf > output.flf\n")
+		flag.PrintDefaults()
+	}
+	flag.Parse()
+
+	if flag.NArg() < 1 {
+		flag.Usage()
 		os.Exit(1)
 	}
 
-	font, err := figlet.LoadFont(os.Args[1])
+	font, err := figlet.LoadFont(flag.Arg(0))
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		os.Exit(1)
+	}
+
+	pw := 1
+	if *double {
+		pw = 2
 	}
 
 	newHeight := font.Height + 1
@@ -47,7 +60,7 @@ func main() {
 	out := bufio.NewWriter(os.Stdout)
 	defer out.Flush()
 
-	maxWidth := font.MaxLen + 2
+	maxWidth := font.MaxLen*pw + 2
 	fmt.Fprintf(out, "flf2a$ %d %d %d -1 2 0 16384 %d\n",
 		newHeight, font.Baseline+1, maxWidth, len(extras))
 	fmt.Fprintf(out, "3D shadow font generated from efont.\n\n")
@@ -55,7 +68,7 @@ func main() {
 	for _, r := range requiredChars {
 		g, ok := font.Glyphs[r]
 		if ok {
-			write3DGlyph(out, g, newHeight, font.HardBlank)
+			write3DGlyph(out, g, newHeight, font.HardBlank, pw)
 		} else {
 			writeBlank(out, 2, newHeight)
 		}
@@ -64,15 +77,15 @@ func main() {
 	for _, r := range extras {
 		g := font.Glyphs[r]
 		fmt.Fprintf(out, "%d\n", r)
-		write3DGlyph(out, g, newHeight, font.HardBlank)
+		write3DGlyph(out, g, newHeight, font.HardBlank, pw)
 	}
 }
 
-func write3DGlyph(w *bufio.Writer, g *figlet.Glyph, newHeight int, hardBlank rune) {
+func write3DGlyph(w *bufio.Writer, g *figlet.Glyph, newHeight int, hardBlank rune, pw int) {
 	origH := len(g.Lines)
 	origW := g.Width
+	outW := origW * pw
 
-	// Parse original glyph into boolean grid
 	orig := make([][]bool, origH)
 	for i, line := range g.Lines {
 		runes := []rune(line)
@@ -85,34 +98,40 @@ func write3DGlyph(w *bufio.Writer, g *figlet.Glyph, newHeight int, hardBlank run
 		orig[i] = row
 	}
 
-	// Build output grid
 	grid := make([][]rune, newHeight)
 	for i := range grid {
-		grid[i] = make([]rune, origW)
+		grid[i] = make([]rune, outW)
 		for j := range grid[i] {
 			grid[i][j] = ' '
 		}
 	}
 
-	// Place foreground: # → █
+	// Place foreground
 	for y := 0; y < origH; y++ {
 		for x := 0; x < origW; x++ {
 			if orig[y][x] {
-				grid[y][x] = '█'
+				for d := 0; d < pw; d++ {
+					grid[y][x*pw+d] = '█'
+				}
 			}
 		}
 	}
 
-	// Place shadow: for each █ at (y, x), put ░ at (y+1, x-1) if empty
+	// Place shadow: for each filled pixel at (y, x), put ░ at (y+1) shifted left by 1
 	for y := 0; y < origH; y++ {
 		for x := 0; x < origW; x++ {
 			if !orig[y][x] {
 				continue
 			}
 			sy := y + 1
-			sx := x - 1
-			if sy < newHeight && sx >= 0 && grid[sy][sx] == ' ' {
-				grid[sy][sx] = '░'
+			if sy >= newHeight {
+				continue
+			}
+			for d := 0; d < pw; d++ {
+				sx := x*pw + d - 1
+				if sx >= 0 && grid[sy][sx] == ' ' {
+					grid[sy][sx] = '░'
+				}
 			}
 		}
 	}
