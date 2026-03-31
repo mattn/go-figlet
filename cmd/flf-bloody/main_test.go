@@ -28,13 +28,13 @@ func TestWriteBloodyGlyphSinglePixel(t *testing.T) {
 		t.Fatalf("got %d lines, want 3", len(lines))
 	}
 
-	if got, want := lines[0], "▓ $@"; got != want {
+	if got, want := lines[0], "▓$@"; got != want {
 		t.Fatalf("first line = %q, want %q", got, want)
 	}
-	if got, want := lines[1], "▒ $@"; got != want {
+	if got, want := lines[1], "▒$@"; got != want {
 		t.Fatalf("second line = %q, want %q", got, want)
 	}
-	if got, want := lines[2], "  $@@"; got != want {
+	if got, want := lines[2], "$@@"; got != want {
 		t.Fatalf("third line = %q, want %q", got, want)
 	}
 }

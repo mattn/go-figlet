@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math"
 	"os"
+	"strings"
 
 	"github.com/mattn/go-figlet"
 )
@@ -69,7 +70,7 @@ func main() {
 	out := bufio.NewWriter(os.Stdout)
 	defer out.Flush()
 
-	maxWidth := font.MaxLen*pw + 1
+	maxWidth := font.MaxLen * pw
 	fmt.Fprintf(out, "flf2a$ %d %d %d -1 2 0 16384 %d\n",
 		newHeight, font.Baseline+1, maxWidth, len(extras))
 	fmt.Fprintf(out, "Bloody font generated from bitmap glyphs.\n\n")
@@ -97,7 +98,7 @@ type bloodyConfig struct {
 func writeBloodyGlyph(w *bufio.Writer, g *figlet.Glyph, newHeight int, hardBlank rune, pw int, cfg bloodyConfig) {
 	origH := len(g.Lines)
 	origW := g.Width
-	outW := origW*pw + 1
+	outW := origW * pw
 
 	orig := make([][]bool, origH)
 	for i, line := range g.Lines {
@@ -173,7 +174,7 @@ func writeBloodyGlyph(w *bufio.Writer, g *figlet.Glyph, newHeight int, hardBlank
 		if y > 0 {
 			fmt.Fprint(w, "\n")
 		}
-		fmt.Fprint(w, string(grid[y]))
+		fmt.Fprint(w, strings.TrimRight(string(grid[y]), " "))
 		fmt.Fprint(w, "$@")
 	}
 	fmt.Fprint(w, "@\n")
