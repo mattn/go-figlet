@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"flag"
 	"fmt"
 	"os"
 	"strings"
@@ -10,15 +11,27 @@ import (
 )
 
 func main() {
-	if len(os.Args) < 2 {
-		fmt.Fprintln(os.Stderr, "Usage: flf-shadow input.flf > output.flf")
+	double := flag.Bool("double", true, "double width (2 chars per pixel)")
+	flag.Usage = func() {
+		fmt.Fprintf(os.Stderr, "Usage: flf-shadow [-double=false] input.flf > output.flf\n")
+		flag.PrintDefaults()
+	}
+	flag.Parse()
+
+	if flag.NArg() < 1 {
+		flag.Usage()
 		os.Exit(1)
 	}
 
-	font, err := figlet.LoadFont(os.Args[1])
+	font, err := figlet.LoadFont(flag.Arg(0))
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		os.Exit(1)
+	}
+
+	pixelWidth := 2
+	if !*double {
+		pixelWidth = 1
 	}
 
 	newHeight := font.Height + 1
@@ -45,7 +58,7 @@ func main() {
 	out := bufio.NewWriter(os.Stdout)
 	defer out.Flush()
 
-	maxWidth := font.MaxLen*2 + 2
+	maxWidth := font.MaxLen*pixelWidth + 2
 	fmt.Fprintf(out, "flf2a$ %d %d %d -1 2 0 16384 %d\n",
 		newHeight, font.Baseline+1, maxWidth, len(extras))
 	fmt.Fprintf(out, "ANSI Shadow font generated from efont.\n\n")
@@ -53,18 +66,18 @@ func main() {
 	for _, r := range requiredChars {
 		g, ok := font.Glyphs[r]
 		if ok {
-			writeGlyph(out, g, newHeight, font.HardBlank)
+			writeGlyph(out, g, newHeight, font.HardBlank, pixelWidth)
 		} else {
 			writeBlank(out, 2, newHeight)
 		}
 	}
 	for _, r := range extras {
 		fmt.Fprintf(out, "%d\n", r)
-		writeGlyph(out, font.Glyphs[r], newHeight, font.HardBlank)
+		writeGlyph(out, font.Glyphs[r], newHeight, font.HardBlank, pixelWidth)
 	}
 }
 
-func writeGlyph(w *bufio.Writer, g *figlet.Glyph, newHeight int, hardBlank rune) {
+func writeGlyph(w *bufio.Writer, g *figlet.Glyph, newHeight int, hardBlank rune, pw int) {
 	origH := len(g.Lines)
 	origW := g.Width
 
@@ -87,7 +100,7 @@ func writeGlyph(w *bufio.Writer, g *figlet.Glyph, newHeight int, hardBlank rune)
 		return orig[y][x]
 	}
 
-	outW := origW * 2
+	outW := origW * pw
 	grid := make([][]rune, newHeight)
 	for i := range grid {
 		grid[i] = make([]rune, outW)
@@ -98,8 +111,6 @@ func writeGlyph(w *bufio.Writer, g *figlet.Glyph, newHeight int, hardBlank rune)
 
 	for y := 0; y < newHeight; y++ {
 		for x := 0; x < origW; x++ {
-			L := x * 2
-			R := x*2 + 1
 			cur := f(y, x)
 			above := f(y-1, x)
 			right := f(y, x+1)
@@ -107,40 +118,59 @@ func writeGlyph(w *bufio.Writer, g *figlet.Glyph, newHeight int, hardBlank rune)
 			left := f(y, x-1)
 			aboveLeft := f(y-1, x-1)
 
-			if cur {
-				grid[y][L] = '█'
-				if right {
-					grid[y][R] = '█'
-				} else if above && aboveRight {
-					// Interior gap: above spans the gap → ╔
-					grid[y][R] = '╔'
-				} else if above && !aboveRight {
-					// Continuing right edge → ║
-					grid[y][R] = '║'
+			if pw == 2 {
+				L := x * 2
+				R := x*2 + 1
+				if cur {
+					grid[y][L] = '█'
+					if right {
+						grid[y][R] = '█'
+					} else if above && aboveRight {
+						grid[y][R] = '╔'
+					} else if above && !aboveRight {
+						grid[y][R] = '║'
+					} else {
+						grid[y][R] = '╗'
+					}
 				} else {
-					// Top of right edge → ╗
-					grid[y][R] = '╗'
+					if left && above && aboveLeft {
+						grid[y][L] = '═'
+					} else if left && above && !aboveLeft {
+						grid[y][L] = '╚'
+					} else if above && !aboveLeft {
+						grid[y][L] = '╚'
+					} else if above {
+						grid[y][L] = '═'
+					}
+					if above && right {
+						grid[y][R] = '═'
+					} else if above && !aboveRight {
+						grid[y][R] = '╝'
+					} else if above {
+						grid[y][R] = '═'
+					}
 				}
 			} else {
-				// Left char of empty pixel
-				if left && above && aboveLeft {
-					// Interior gap continuation: filled pixel placed ╔, continue with ═
-					grid[y][L] = '═'
-				} else if left && above && !aboveLeft {
-					// Gap after filled, above starts here → ╚
-					grid[y][L] = '╚'
-				} else if above && !aboveLeft {
-					grid[y][L] = '╚'
-				} else if above {
-					grid[y][L] = '═'
-				}
-				// Right char of empty pixel
-				if above && right {
-					grid[y][R] = '═'
-				} else if above && !aboveRight {
-					grid[y][R] = '╝'
-				} else if above {
-					grid[y][R] = '═'
+				// Single width
+				p := x
+				if cur {
+					if right {
+						grid[y][p] = '█'
+					} else if above && aboveRight {
+						grid[y][p] = '╔'
+					} else if above && !aboveRight {
+						grid[y][p] = '║'
+					} else {
+						grid[y][p] = '╗'
+					}
+				} else {
+					if above && !aboveLeft {
+						grid[y][p] = '╚'
+					} else if above && !aboveRight {
+						grid[y][p] = '╝'
+					} else if above {
+						grid[y][p] = '═'
+					}
 				}
 			}
 		}
