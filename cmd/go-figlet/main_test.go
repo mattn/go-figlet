@@ -63,3 +63,16 @@ func TestListNamedFonts(t *testing.T) {
 		t.Fatalf("got %v, want [alpha zeta]", got)
 	}
 }
+
+func TestListColors(t *testing.T) {
+	got := listColors()
+	if len(got) == 0 {
+		t.Fatal("expected non-empty color list")
+	}
+	if got[0] != "preset:cool" {
+		t.Fatalf("first entry = %q, want %q", got[0], "preset:cool")
+	}
+	if got[len(got)-1] != "name:yellow" {
+		t.Fatalf("last entry = %q, want %q", got[len(got)-1], "name:yellow")
+	}
+}

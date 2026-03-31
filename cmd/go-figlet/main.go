@@ -36,6 +36,12 @@ func main() {
 		}
 		return
 	}
+	if *colorStr == "list" {
+		for _, name := range listColors() {
+			fmt.Fprintln(os.Stdout, name)
+		}
+		return
+	}
 
 	var err error
 	*fontPath, err = resolveFontPath(*fontPath)
@@ -147,4 +153,20 @@ func listNamedFonts() ([]string, error) {
 	}
 	sort.Strings(names)
 	return names, nil
+}
+
+func listColors() []string {
+	return []string{
+		"preset:cool",
+		"preset:rainbow",
+		"preset:warm",
+		"name:black",
+		"name:blue",
+		"name:cyan",
+		"name:green",
+		"name:magenta",
+		"name:red",
+		"name:white",
+		"name:yellow",
+	}
 }
