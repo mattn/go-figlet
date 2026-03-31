@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/mattn/go-figlet"
 )
@@ -58,6 +59,9 @@ func main() {
 	defer out.Flush()
 
 	maxWidth := font.MaxLen*pixelWidth + 2
+	if pixelWidth == 1 {
+		maxWidth = font.MaxLen + 2
+	}
 	fmt.Fprintf(out, "flf2a$ %d %d %d -1 2 0 16384 %d\n",
 		newHeight, font.Baseline+1, maxWidth, len(extras))
 	fmt.Fprintf(out, "ANSI Shadow font generated from efont.\n\n")
@@ -99,9 +103,11 @@ func writeGlyph(w *bufio.Writer, g *figlet.Glyph, newHeight int, hardBlank rune,
 		return orig[y][x]
 	}
 
-	// Reserve one extra column so the shadowed outline has breathing room
-	// before the next glyph starts.
-	outW := origW*pw + 1
+	outW := origW * pw
+	if pw == 1 {
+		outW = origW + 1
+	}
+
 	grid := make([][]rune, newHeight)
 	for i := range grid {
 		grid[i] = make([]rune, outW)
@@ -151,27 +157,46 @@ func writeGlyph(w *bufio.Writer, g *figlet.Glyph, newHeight int, hardBlank rune,
 						grid[y][R] = '═'
 					}
 				}
-			} else {
-				// Single width
-				p := x
-				if cur {
-					if right {
-						grid[y][p] = '█'
-					} else if above && aboveRight {
-						grid[y][p] = '╔'
-					} else if above && !aboveRight {
-						grid[y][p] = '║'
-					} else {
-						grid[y][p] = '╗'
+				continue
+			}
+
+			L := x
+			R := x + 1
+			if cur {
+				grid[y][L] = '█'
+				if right {
+					if grid[y][R] == ' ' {
+						grid[y][R] = '█'
+					}
+				} else if above && aboveRight {
+					if grid[y][R] == ' ' {
+						grid[y][R] = '╔'
+					}
+				} else if above && !aboveRight {
+					if grid[y][R] == ' ' {
+						grid[y][R] = '║'
 					}
 				} else {
-					if above && !aboveLeft {
-						grid[y][p] = '╚'
-					} else if above && !aboveRight {
-						grid[y][p] = '╝'
-					} else if above {
-						grid[y][p] = '═'
+					if grid[y][R] == ' ' {
+						grid[y][R] = '╗'
 					}
+				}
+			} else {
+				if left && above && aboveLeft {
+					setShadowCell(grid[y], L, '═')
+				} else if left && above && !aboveLeft {
+					setShadowCell(grid[y], L, '╚')
+				} else if above && !aboveLeft {
+					setShadowCell(grid[y], L, '╚')
+				} else if above {
+					setShadowCell(grid[y], L, '═')
+				}
+				if above && right {
+					setShadowCell(grid[y], R, '═')
+				} else if above && !aboveRight {
+					setShadowCell(grid[y], R, '╝')
+				} else if above {
+					setShadowCell(grid[y], R, '═')
 				}
 			}
 		}
@@ -181,10 +206,19 @@ func writeGlyph(w *bufio.Writer, g *figlet.Glyph, newHeight int, hardBlank rune,
 		if y > 0 {
 			fmt.Fprint(w, "\n")
 		}
-		fmt.Fprint(w, string(grid[y]))
+		fmt.Fprint(w, strings.TrimRight(string(grid[y]), " "))
 		fmt.Fprint(w, "$@")
 	}
 	fmt.Fprint(w, "@\n")
+}
+
+func setShadowCell(row []rune, x int, r rune) {
+	if x < 0 || x >= len(row) {
+		return
+	}
+	if row[x] == ' ' {
+		row[x] = r
+	}
 }
 
 func writeBlank(w *bufio.Writer, width, height int) {
