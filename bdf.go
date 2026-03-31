@@ -9,6 +9,7 @@ import (
 
 	"golang.org/x/text/encoding/japanese"
 	"golang.org/x/text/transform"
+	"golang.org/x/text/width"
 )
 
 type bdfChar struct {
@@ -118,6 +119,8 @@ readChars:
 		}
 	}
 
+	chars = appendSyntheticHalfwidthKatakana(chars, height)
+
 	// Build required set for fast lookup
 	requiredSet := make(map[rune]bool, len(requiredChars))
 	for _, r := range requiredChars {
@@ -172,6 +175,171 @@ readChars:
 	return nil
 }
 
+func appendSyntheticHalfwidthKatakana(chars []bdfChar, height int) []bdfChar {
+	seen := make(map[rune]bool, len(chars))
+	indexByRune := make(map[rune]int, len(chars))
+	for i, ch := range chars {
+		seen[ch.encoding] = true
+		indexByRune[ch.encoding] = i
+	}
+
+	for r := rune(0xFF61); r <= rune(0xFF9F); r++ {
+		if seen[r] {
+			continue
+		}
+		wide := []rune(width.Widen.String(string(r)))
+		if len(wide) != 1 || wide[0] == r {
+			continue
+		}
+		srcIdx, ok := indexByRune[wide[0]]
+		if !ok {
+			continue
+		}
+		synth, ok := synthesizeHalfwidthChar(chars[srcIdx], r, height)
+		if !ok {
+			continue
+		}
+		chars = append(chars, synth)
+		seen[r] = true
+	}
+
+	return chars
+}
+
+func synthesizeHalfwidthChar(src bdfChar, target rune, height int) (bdfChar, bool) {
+	if src.width <= 1 || src.bitmap == "" {
+		return bdfChar{}, false
+	}
+
+	rows, ok := decodeBDFBitmap(src.bitmap, src.width, height)
+	if !ok {
+		return bdfChar{}, false
+	}
+
+	left, right, ok := bitmapBounds(rows)
+	if !ok {
+		return bdfChar{}, false
+	}
+
+	span := right - left + 1
+	targetWidth := span / 2
+	if targetWidth < 1 {
+		targetWidth = 1
+	}
+	if targetWidth > src.width {
+		targetWidth = src.width
+	}
+
+	compressed := make([][]bool, len(rows))
+	for y := range rows {
+		compressed[y] = make([]bool, targetWidth)
+		for x := 0; x < targetWidth; x++ {
+			srcStart := left + (x*span)/targetWidth
+			srcEnd := left + ((x+1)*span)/targetWidth
+			if srcEnd <= srcStart {
+				srcEnd = srcStart + 1
+			}
+			if srcEnd > left+span {
+				srcEnd = left + span
+			}
+			for sx := srcStart; sx < srcEnd; sx++ {
+				if sx >= 0 && sx < len(rows[y]) && rows[y][sx] {
+					compressed[y][x] = true
+					break
+				}
+			}
+		}
+	}
+
+	return bdfChar{
+		encoding: target,
+		width:    targetWidth,
+		bitmap:   encodeBDFBitmap(compressed),
+	}, true
+}
+
+func decodeBDFBitmap(bitmap string, width, height int) ([][]bool, bool) {
+	hexChars := ((width + 7) / 8) * 2
+	if hexChars <= 0 || len(bitmap) < hexChars*height {
+		return nil, false
+	}
+
+	rows := make([][]bool, height)
+	pos := 0
+	for y := 0; y < height; y++ {
+		hex := bitmap[pos : pos+hexChars]
+		pos += hexChars
+		val, err := strconv.ParseUint(hex, 16, 64)
+		if err != nil {
+			return nil, false
+		}
+		rows[y] = make([]bool, width)
+		bit := uint64(1) << (uint(hexChars)*4 - 1)
+		for x := 0; x < width; x++ {
+			rows[y][x] = val&bit != 0
+			if bit == 1 {
+				break
+			}
+			bit >>= 1
+		}
+	}
+
+	return rows, true
+}
+
+func encodeBDFBitmap(rows [][]bool) string {
+	if len(rows) == 0 {
+		return ""
+	}
+	width := len(rows[0])
+	hexChars := ((width + 7) / 8) * 2
+	if hexChars == 0 {
+		return ""
+	}
+
+	var b strings.Builder
+	for _, row := range rows {
+		var val uint64
+		bit := uint64(1) << (uint(hexChars)*4 - 1)
+		for x := 0; x < width; x++ {
+			if row[x] {
+				val |= bit
+			}
+			if bit == 1 {
+				break
+			}
+			bit >>= 1
+		}
+		fmt.Fprintf(&b, "%0*X", hexChars, val)
+	}
+	return b.String()
+}
+
+func bitmapBounds(rows [][]bool) (int, int, bool) {
+	if len(rows) == 0 || len(rows[0]) == 0 {
+		return 0, 0, false
+	}
+	left := len(rows[0])
+	right := -1
+	for _, row := range rows {
+		for x, v := range row {
+			if !v {
+				continue
+			}
+			if x < left {
+				left = x
+			}
+			if x > right {
+				right = x
+			}
+		}
+	}
+	if right < left {
+		return 0, 0, false
+	}
+	return left, right, true
+}
+
 func writeCharacter(w io.Writer, bitmap string, width, height int) {
 	hexChars := (width + 7) / 8 * 2
 	pos := 0
@@ -220,4 +388,3 @@ func writeBlankCharacter(w io.Writer, width, height int) {
 	}
 	fmt.Fprint(w, "@\n")
 }
-

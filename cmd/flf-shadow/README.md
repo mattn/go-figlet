@@ -16,8 +16,8 @@ flf-shadow [-double] input.flf > output.flf
 ## Example
 
 ```bash
-flf-shadow efont-b12_b.flf > shadow-efont-b12.flf
-go-figlet -font shadow-efont-b12.flf "figlet"
+flf-shadow efont-b12_b.flf > efont-b12-shadow-single.flf
+go-figlet -font efont-b12-shadow-single "figlet"
 ```
 
 ```

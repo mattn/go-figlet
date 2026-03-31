@@ -16,8 +16,8 @@ flf-3d [-double] input.flf > output.flf
 ## Example
 
 ```bash
-flf-3d efont-b12_b.flf > 3d-efont-b12.flf
-go-figlet -font 3d-efont-b12.flf "figlet"
+flf-3d efont-b12_b.flf > efont-b12-3d-single.flf
+go-figlet -font efont-b12-3d-single "figlet"
 ```
 
 ```

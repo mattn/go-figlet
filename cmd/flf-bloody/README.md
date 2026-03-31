@@ -20,8 +20,8 @@ flf-bloody [-double] [-drip-ratio=0.12] [-drip-density=0.5] input.flf > output.f
 ## Example
 
 ```bash
-flf-bloody efont-b12_b.flf > bloody-efont-b12.flf
-go-figlet -font bloody-efont-b12.flf "figlet"
+flf-bloody efont-b12_b.flf > efont-b12-bloody-single.flf
+go-figlet -font efont-b12-bloody-single "figlet"
 ```
 
 ```
