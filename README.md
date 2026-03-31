@@ -56,13 +56,17 @@ Supports JIS X 0208 encoded BDF fonts (auto-detected and converted to Unicode).
 package main
 
 import (
+	"embed"
 	"os"
 
 	"github.com/mattn/go-figlet"
 )
 
+//go:embed fonts/*.flf
+var fonts embed.FS
+
 func main() {
-	font, _ := figlet.LoadFont("/usr/share/figlet/standard.flf")
+	font, _ := figlet.LoadFontFS(fonts, "fonts/standard.flf")
 
 	// Simple rendering
 	font.Print("Hello")

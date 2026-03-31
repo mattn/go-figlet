@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"strconv"
 	"strings"
@@ -33,12 +34,22 @@ type Font struct {
 	Baseline  int
 	MaxLen    int
 	HardBlank rune
-	Glyphs   map[rune]*Glyph
+	Glyphs    map[rune]*Glyph
 }
 
 // LoadFont reads a FIGlet font (.flf) file from the given path.
 func LoadFont(path string) (*Font, error) {
 	f, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	return ReadFont(f)
+}
+
+// LoadFontFS reads a FIGlet font (.flf) file from the given filesystem.
+func LoadFontFS(fsys fs.FS, path string) (*Font, error) {
+	f, err := fsys.Open(path)
 	if err != nil {
 		return nil, err
 	}
