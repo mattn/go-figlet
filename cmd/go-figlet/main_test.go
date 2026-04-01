@@ -72,7 +72,7 @@ func TestListColors(t *testing.T) {
 	if got[0] != "preset:cool" {
 		t.Fatalf("first entry = %q, want %q", got[0], "preset:cool")
 	}
-	if got[len(got)-1] != "name:yellow" {
-		t.Fatalf("last entry = %q, want %q", got[len(got)-1], "name:yellow")
+	if got[len(got)-1] != "name:yellowgreen" {
+		t.Fatalf("last entry = %q, want %q", got[len(got)-1], "name:yellowgreen")
 	}
 }

@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/mattn/go-figlet"
+	"golang.org/x/image/colornames"
 )
 
 func main() {
@@ -156,17 +157,13 @@ func listNamedFonts() ([]string, error) {
 }
 
 func listColors() []string {
-	return []string{
+	list := []string{
 		"preset:cool",
 		"preset:rainbow",
 		"preset:warm",
-		"name:black",
-		"name:blue",
-		"name:cyan",
-		"name:green",
-		"name:magenta",
-		"name:red",
-		"name:white",
-		"name:yellow",
 	}
+	for _, name := range colornames.Names {
+		list = append(list, "name:"+name)
+	}
+	return list
 }
